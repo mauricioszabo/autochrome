@@ -49,8 +49,3 @@
 (defn clojure-core-scope
   []
   @core-scope)
-
-(defn- hash-combine [seed hash]
-  (bit-and seed (+ hash 0x9e3779b9
-                   (bit-shift-left seed 6)
-                   (bit-shift-right seed 2))))

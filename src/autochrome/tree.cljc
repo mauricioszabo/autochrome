@@ -43,19 +43,19 @@
   (let [children (->children form)
         size (if-not children
                (if-let [t (:text form)]
-                 (clj-common/hash-combine (.hashCode t) (.hashCode (:type form)))
+                 (hash-combine (.hashCode t) (.hashCode (:type form)))
                  (if (= :coll (:type form))
                    ;; empty collection
                    (.hashCode (:delim form))
                    (if (nil? form)
                      0
                      (throw (ex-info "unhashable" {:form form})))))
-               (let [type-hash (clj-common/hash-combine (.hashCode (:type form)) (hash (:delim form)))
-                     parent-hash (volatile! (clj-common/hash-combine 0x1a814d0 type-hash))]
+               (let [type-hash (hash-combine (.hashCode (:type form)) (hash (:delim form)))
+                     parent-hash (volatile! (hash-combine 0x1a814d0 type-hash))]
                  (loop [i 0
                         [c & cs] children]
                    (when c
-                     (vreset! parent-hash (clj-common/hash-combine @parent-hash (put-hashes hmap c)))
+                     (vreset! parent-hash (hash-combine @parent-hash (put-hashes hmap c)))
                      (recur (inc i) cs)))
                  @parent-hash))]
     (.put hmap form size)
