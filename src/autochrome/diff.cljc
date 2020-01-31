@@ -77,12 +77,6 @@
       (tree/put-sizes sizes f))
     {:hashes hashes :sizes sizes}))
 
-(def a ())
-(swap! a conj 10)
-(swap! a conj 20)
-(first @a)
-(disj @a 10)
-
 (defn dforms
   ([source targets]
    (let [{:keys [hashes sizes]} (diff-prep [source] targets)]
