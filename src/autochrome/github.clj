@@ -134,7 +134,7 @@
           :url url
           :content-type :json
           :accept "application/vnd.github.VERSION.raw"}
-          *auth-token* (assoc :basic-auth *auth-token*))))
+         *auth-token* (assoc :basic-auth *auth-token*))))
       (catch Exception e
         (throw (Exception. (str "slurping " (pr-str url)) e))))))
 
