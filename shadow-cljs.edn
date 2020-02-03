@@ -1,0 +1,16 @@
+;; shadow-cljs configuration
+{:source-paths ["src"]
+
+ :dependencies [[hiccup "1.0.5"]
+                [org.omcljs/om "1.0.0-beta1"]
+                [garden "1.3.3"]
+                [cheshire "5.8.0"]
+                [clj-http "3.7.0"]
+                [org.clojure/tools.cli "0.3.5"]
+                [com.climate/claypoole "1.1.4"]
+                ;; explicit dependency on jaxb-api for java 9 compatibility
+                [javax.xml.bind/jaxb-api "2.3.0"]]
+
+ :builds {:node {:target :node-script
+                 :output-to "main.js"
+                 :main autochrome.core/-main}}}
