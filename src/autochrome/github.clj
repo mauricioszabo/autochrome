@@ -35,15 +35,15 @@
 
 (defn strip-prefix
   [s pre]
-  (if-not (.startsWith s pre)
+  (if-not (string/starts-with? s pre)
     s
-    (.substring s (count pre))))
+    (subs s (count pre))))
 
 (defn parse-diff
   [diff]
   (let [lines (string/split-lines diff)
-        put-line (fn [c k l] (update c k conj (.substring l 1)))
-        line->path #(-> (second (.split % " "))
+        put-line (fn [c k l] (update c k conj (subs l 1)))
+        line->path #(-> (second (string/split % #" "))
                         (strip-prefix "a/")
                         (strip-prefix "b/"))
         hunks (volatile! (transient []))
@@ -60,7 +60,7 @@
                     (assoc context :raw
                            (subvec lines (:start context) line-index))))}
           (cond
-            (.startsWith line "diff --git")
+            (string/starts-with? line "diff --git")
             (do (when (:hunk context)
                   (vswap! hunks conj! context)
                   (vswap! filechanges conj!
@@ -68,23 +68,23 @@
                                  (subvec lines (:start context) line-index))))
                 (recur (assoc default-ctx :start line-index) (inc line-index)))
 
-            (.startsWith line "---")
+            (string/starts-with? line "---")
             (recur (assoc context :old-path (line->path line)) (inc line-index))
 
-            (.startsWith line "+++")
+            (string/starts-with? line "+++")
             (recur (assoc context :new-path (line->path line)) (inc line-index))
 
-            (.startsWith line "@@")
+            (string/starts-with? line "@@")
             (do (when (:hunk context)
                   (vswap! hunks conj! context))
                 (recur
                  (merge context {:new [] :old [] :hunk (parse-hunk-spec line)})
                  (inc line-index)))
 
-            (.startsWith line "+")
+            (string/starts-with? line "+")
             (recur (put-line context :new line) (inc line-index))
 
-            (.startsWith line "-")
+            (string/starts-with? line "-")
             (recur (put-line context :old line) (inc line-index))
 
             :else
@@ -106,12 +106,12 @@
   [new-text patches]
   (if-not new-text
     (string/join "\n" (conj (mapcat :old patches) ""))
-    (let [lines (.split new-text "\n")
+    (let [lines (string/split new-text #"\n")
           line->patch (into {} (map (juxt (comp :new-start :hunk) identity) patches))
           sb (StringBuilder.)]
       (loop [idx 0]
         (if-not (< idx (count lines))
-          (.toString sb)
+          (str sb)
           (let [linenum (inc idx)]
             (if-let [{:keys [hunk] :as patch} (line->patch linenum)]
               (do
@@ -146,7 +146,7 @@
   [rev]
   (reduce
    (fn [m line]
-     (let [sp   (.split line "\\s")
+     (let [sp   (string/split line #"\s")
            ;; [mode type sha path]
            sha  (aget sp 2)
            path (aget sp 3)]
@@ -154,7 +154,7 @@
    {}
    (-> (sh/sh "git" "ls-tree" "-r" rev :dir *git-dir*)
        :out
-       (.split "\n"))))
+       (string/split #"\n"))))
 
 (defn ->changed-files
   [rawdiff slurp-new-blob-fn]
@@ -213,3 +213,40 @@
   (let [rawdiff (:out (sh/sh "git" "diff" oldref :dir *git-dir*))
         basedir (io/file *git-dir*)]
     (->changed-files rawdiff #(slurp (io/file basedir %)))))
+
+
+#_
+(def diff-str "
+diff --git a/test/charon/kafka_test.clj b/test/charon/kafka_test.clj
+index 9823020..ce3e158 100644
+--- a/test/charon/kafka_test.clj
++++ b/test/charon/kafka_test.clj
+@@ -33,14 +33,13 @@
+        (finally
+          (core/stop! ~system-symbol)))))
+
+-; TODO: Kafka Test Refactory
+-; (deftest real-kafka
+-;   (prepare-real-system! system
+-;     (testing \"producing a message\"
+-;       (kafka/produce! system :akreditasi-req {:someMessage \"Message\"}))
+-;
+-;     (testing \"receiving a message\"
+-;       (let [p (promise)]
+-;         (kafka/consume! system :akreditasi #(deliver p (:value %)))
+-;         (is (match? {:some-message \"Message\"}
+-;                     (deref p 10000 :timeout)))))))
++(deftest ^:kaocha/pending real-kafka
++  (prepare-real-system! system
++    (testing \"producing a message\"
++      (kafka/produce! system :akreditasi-req {:someMessage \"Message\"}))
++
++    (testing \"receiving a message\"
++      (let [p (promise)]
++        (kafka/consume! system :akreditasi #(deliver p (:value %)))
++        (is (match? {:some-message \"Message\"}
++                    (deref p 10000 :timeout)))))))
+")
+
+#_
+(parse-diff diff-str)

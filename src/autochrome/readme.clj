@@ -35,9 +35,9 @@
    [:.inset {:border       "2px solid"
              :border-color "#969896"
              :padding      "10px"
-             :display      "flex"
+             :display      "flex"}]
              ;:margin "10px auto"
-             }]
+
    [:.examplesection {:font-size "16px"
                       :width "70%"
                       :margin "auto"}]

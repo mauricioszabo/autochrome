@@ -43,3 +43,6 @@
   [& args]
   (apply do-main args)
   (shutdown-agents))
+
+(do-main "--git-dir" "/home/mauricio/code_pgo/charon"
+      "HEAD^^")

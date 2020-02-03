@@ -1,8 +1,9 @@
 (ns autochrome.diff
   (:require [autochrome.tree :as tree])
-  #?(:clj (:import [java.util IdentityHashMap])))
+  (:import [clojure.lang Util]
+           [java.util HashMap PriorityQueue IdentityHashMap]))
 
-#?(:clj (set! *warn-on-reflection* true))
+(set! *warn-on-reflection* true)
 
 (defn compare-vectors-by-identity
   [a b]
@@ -15,16 +16,13 @@
           (when (identical? (nth a i) (nth b i))
             (recur (inc i))))))))
 
-(defn id-hash-code [obj]
-  #?(:clj (System/identityHashCode obj)))
-
 (deftype DiffContext [prevsources prevtargets]
   ;; `prevsources` and `prevtargets` are basically two independent stacks
   Object
   (hashCode [this]
-    (hash-combine
-     (id-hash-code (peek prevsources))
-     (id-hash-code (peek prevtargets))))
+    (Util/hashCombine
+     (System/identityHashCode (peek prevsources))
+     (System/identityHashCode (peek prevtargets))))
   (equals ^boolean [this that-obj]
     (let [^DiffContext that that-obj]
       (boolean
@@ -43,18 +41,17 @@
   (hashCode [this]
     (unchecked-add-int
      (.hashCode context)
-     (unchecked-add-int (id-hash-code source)
-                        (id-hash-code target))))
+     (unchecked-add-int (System/identityHashCode source)
+                        (System/identityHashCode target))))
   (equals [this that-obj]
     (let [^DiffState that that-obj]
       (and (identical? (.-source this) (.-source that))
            (identical? (.-target this) (.-target that))
            (.equals (.-context this) (.-context that)))))
-  #?@(:clj
-      [Comparable
-       (compareTo [this that-obj
-                    (let [^DiffState that that-obj])
-                    (- (.-cost this) (.-cost that))])]))
+  Comparable
+  (compareTo [this that-obj]
+    (let [^DiffState that that-obj]
+      (- (.-cost this) (.-cost that)))))
 
 (defn get-target
   [^DiffState ds]
@@ -65,13 +62,10 @@
 (def state-info (atom {}))
 (def nprocessed (atom 0))
 
-(defn- new-id-hash-map []
-  #?(:clj (IdentityHashMap.)))
-
 (defn diff-prep
   [sources targets]
-  (let [hashes (new-id-hash-map)
-        sizes (new-id-hash-map)]
+  (let [hashes (IdentityHashMap.)
+        sizes (IdentityHashMap.)]
     (doseq [f (concat sources targets)]
       (tree/put-hashes hashes f)
       (tree/put-sizes sizes f))
@@ -82,34 +76,32 @@
    (let [{:keys [hashes sizes]} (diff-prep [source] targets)]
      (dforms source targets hashes sizes)))
   ([source targets ^IdentityHashMap hashes ^IdentityHashMap sizes]
-   (let [real-cost (atom {})
-         pq (atom (sorted-set))
+   (let [real-cost (HashMap.)
+         pq (PriorityQueue.)
          explore (fn [ncost ^DiffState predstate nsource ntarget nctx changes]
                    (let [ds (DiffState. ncost nsource ntarget nctx changes (.-origtarget predstate))
-                         prev-cost (get @real-cost ds)]
-                     (swap! state-info update (id-hash-code ds) assoc :pred (id-hash-code predstate))
+                         prev-cost (.get real-cost ds)]
+                     (swap! state-info update (System/identityHashCode ds) assoc :pred (System/identityHashCode predstate))
                      (when (and (or (nil? prev-cost) (< ncost prev-cost)))
-                       (swap! real-cost assoc ds ncost)
-                       (swap! pq conj ds))))]
+                       (.put real-cost ds ncost)
+                       (.offer pq ds))))]
      (reset! explored-states [])
      (reset! state-info {})
      (doseq [t targets
              :let [start-state (DiffState. 0 (list source) (list t) (DiffContext. [] []) [] t)]]
-       (swap! pq conj start-state)
-       (swap! real-cost assoc start-state 0))
+       (.offer pq start-state)
+       (.put real-cost start-state 0))
      (loop []
-       (when-let [^DiffState c (let [value (first @pq)]
-                                 (swap! pq disj value)
-                                 value)]
+       (when-let [^DiffState c (.poll pq)]
          (swap! nprocessed inc)
          (swap! explored-states conj c)
          (let [[shead & smore :as sforms] (.-source c)
                [thead & tmore :as tforms] (.-target c)
-               cost (get @real-cost c)
+               cost (.get real-cost c)
                ^DiffContext context (.-context c)
                prevsources (.-prevsources context)
                prevtargets (.-prevtargets context)]
-           (swap! state-info update (id-hash-code c) update :attrib conj :popped)
+           (swap! state-info update (System/identityHashCode c) update :attrib conj :popped)
            (if (and (nil? shead) (nil? thead) (empty? prevsources) (empty? prevtargets))
              c
              (let [ssize (.get sizes shead)
@@ -152,7 +144,7 @@
 
 (defn diffstate->annotations
   [^DiffState dst]
-  (let [ann (new-id-hash-map)]
+  (let [ann (IdentityHashMap.)]
     (doseq [[ptr a] (.-changes dst)]
       (.put ann ptr a))
     ann))
